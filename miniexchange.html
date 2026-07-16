@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mini Exchange — Full Dashboard + Auth</title>
+<style>
+  :root{
+    --bg:#0b0f19; --panel:#1e2329; --panel-2:#11151f; --text:#ffffff; --muted:#8a94a7; --brand:#f3ba2f; --danger:#ff6961; --success:#6ee7a8; --border:#2a3140;
+  }
+  [data-theme="light"]{
+    --bg:#f6f7fb; --panel:#ffffff; --panel-2:#f1f3f7; --text:#0b0f19; --muted:#55607a; --brand:#f3ba2f; --danger:#d83a3a; --success:#059669; --border:#e3e7ef;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+  header{background:var(--panel);padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+  header h1{margin:0;font-size:20px;color:var(--brand)}
+  .spacer{flex:1}
+  .app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+  .sidebar{background:var(--panel);border-right:1px solid var(--border);padding:14px}
+  .nav-btn{width:100%;text-align:left;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);margin:6px 0;cursor:pointer}
+  .nav-btn.active{outline:2px solid var(--brand)}
+  .content{padding:18px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin:14px 0}
+  h2{margin:6px 0 12px 0;font-size:18px}
+  .grid{display:grid;gap:14px}
+  .g-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  label{display:block;margin:8px 0 6px 0;color:var(--muted);font-size:14px}
+  input,select,button,textarea{
+    width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text)
+  }
+  button{cursor:pointer;font-weight:600}
+  .btn-primary{background:var(--brand);border-color:transparent;color:#111}
+  .btn-danger{background:var(--danger);border-color:transparent;color:#fff}
+  .btn-ghost{background:transparent}
+  .row{display:flex;gap:10px;align-items:center}
+  .row > *{flex:1}
+  .tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;border:1px solid var(--border);background:var(--panel-2);color:var(--muted)}
+  .price-up{color:var(--success)} .price-down{color:var(--danger)}
+  ul{list-style:none;padding:0;margin:0}
+  li.item{background:var(--panel-2);border:1px solid var(--border);padding:10px;border-radius:10px;margin:6px 0}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left;font-size:14px}
+  .muted{color:var(--muted)}
+  .right{text-align:right}
+  .mt-8{margin-top:8px} .mt-12{margin-top:12px} .mt-16{margin-top:16px}
+  .hidden{display:none}
+
+  /* === Auth overlay === */
+  .auth-wrap{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.5); backdrop-filter: blur(2px); padding:20px;
+  }
+  .auth-card{
+    width:min(480px,100%); background:var(--panel); border:1px solid var(--border);
+    border-radius:16px; padding:18px;
+  }
+  .tabs{display:flex; gap:8px; margin-bottom:12px}
+  .tab-btn{flex:1; padding:10px; border:1px solid var(--border); border-radius:10px; background:var(--panel-2); color:var(--text); cursor:pointer}
+  .tab-btn.active{outline:2px solid var(--brand)}
+  .user-list{margin-top:10px}
+  .user-pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--border); border-radius:999px; margin:4px; background:var(--panel-2); font-size:13px}
+  .logout-btn{border:1px solid var(--border); background:var(--panel-2); color:var(--text); padding:8px 10px; border-radius:8px}
+
+  /* New styles for dashboard section */
+  .dashboard-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+  .total-value { font-size: 28px; font-weight: 700; color: var(--brand); }
+  .tabs-row { display: flex; gap: 4px; }
+  .tab-btn-small { padding: 8px 12px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); border-radius: 8px; cursor: pointer; font-size: 14px; }
+  .tab-btn-small.active { background: var(--brand); color: #111; }
+  .actions-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .btn-small { padding: 10px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); }
+  .btn-primary-small { background: var(--brand); color: #111; border-color: transparent; }
+  .promotion { background: linear-gradient(135deg, var(--panel-2), var(--border)); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
+  .promotion-icon { font-size: 24px; }
+  .portfolio-list { display: flex; flex-direction: column; gap: 12px; }
+  .portfolio-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--panel-2); border-radius: 8px; border: 1px solid var(--border); }
+  .item-icon { width: 32px; height: 32px; border-radius: 50%; background: var(--brand); display: flex; align-items: center; justify-content: center; color: #111; font-size: 12px; }
+  .item-label { flex: 1; margin-left: 12px; }
+  .item-balance { font-weight: 600; text-align: right; }
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--panel); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 12px 0; }
+  .nav-icon { font-size: 24px; display: block; text-align: center; color: var(--muted); cursor: pointer; padding: 8px; border-radius: 8px; transition: color 0.2s; }
+  .nav-icon.active { color: var(--brand); }
+  @media (max-width: 768px) { .app { grid-template-columns: 1fr; } .sidebar { display: none; } .content { padding: 16px; } .bottom-nav { display: flex; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ Mini Exchange</h1>
+  <div class="tag" id="uidTag">UID —</div>
+  <div class="tag" id="userTag">User —</div>
+  <div class="tag">Auto-prices every 10s</div>
+  <div class="tag" id="themeTag">Theme: Dark</div>
+  <div class="spacer"></div>
+  <button id="logoutBtn" class="logout-btn hidden" onclick="auth.logout()">Logout</button>
+</header>
+
+<!-- ===== AUTH OVERLAY ===== -->
+<div id="authOverlay" class="auth-wrap hidden" aria-modal="true" role="dialog">
+  <div class="auth-card">
+    <div class="tabs">
+      <button id="tabLogin" class="tab-btn active" onclick="auth.showTab('login')">Login</button>
+      <button id="tabSignup" class="tab-btn" onclick="auth.showTab('signup')">Sign up</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="paneLogin">
+      <label>Username</label>
+      <input id="loginUser" placeholder="e.g. zix_09"/>
+      <label>Password</label>
+      <input id="loginPass" type="password" placeholder="••••••••"/>
+      <div class="row mt-12">
+        <button class="btn-primary" onclick="auth.login()">Login</button>
+        <button class="btn-ghost" onclick="auth.quickDemo()">Quick demo</button>
+      </div>
+      <div class="muted mt-12">Tip: use the “Quick demo” to auto-create a sandbox user.</div>
+      <div class="user-list" id="knownUsers"></div>
+    </div>
+
+    <!-- SIGNUP -->
+    <div id="paneSignup" class="hidden">
+      <label>Username</label>
+      <input id="suUser" placeholder="choose a name"/>
+      <label>Password</label>
+      <input id="suPass" type="password" placeholder="at least 4 chars"/>
+      <label>Confirm Password</label>
+      <input id="suPass2" type="password" placeholder="repeat password"/>
+      <div class="row mt-12">
+        <button class="btn-primary" onclick="auth.signup()">Create account</button>
+        <button class="btn-ghost" onclick="auth.showTab('login')">Back to login</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app hidden" id="app" data-theme="dark">
+  <aside class="sidebar" id="sidebar">
+    <button class="nav-btn active" data-page="dashboard">🏠 Dashboard</button>
+    <button class="nav-btn" data-page="assets">💰 Assets</button>
+    <button class="nav-btn" data-page="trade">💱 Trade</button>
+    <button class="nav-btn" data-page="orders">🧾 Orders</button>
+    <button class="nav-btn" data-page="rewards">🎁 Rewards Hub</button>
+    <button class="nav-btn" data-page="referral">🤝 Referral</button>
+    <button class="nav-btn" data-page="account">👤 Account</button>
+    <button class="nav-btn" data-page="sub">🧩 Sub-Accounts</button>
+    <button class="nav-btn" data-page="settings">⚙️ Settings</button>
+  </aside>
+
+  <main class="content">
+    <!-- DASHBOARD -->
+    <section id="page-dashboard" class="page">
+      <div class="grid g-3">
+        <div class="card">
+          <h2>Portfolio</h2>
+          <div class="row">
+            <div>
+              <div class="muted">Total Value</div>
+              <div style="font-size:24px;font-weight:700">$<span id="portfolioValue">0.00</span></div>
+            </div>
+            <div>
+              <div class="muted">USD Balance</div>
+              <div>$<span id="usdBalance">0.00</span></div>
+            </div>
+            <div>
+              <div class="muted">Theme</div>
+              <div id="themeLabel">Dark</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Live Prices</h2>
+          <div id="priceList">Loading…</div>
+          <div class="muted mt-8">Refreshes every 10 seconds</div>
+        </div>
+
+        <div class="card">
+          <h2>Quick Actions</h2>
+          <div class="row">
+            <button class="btn-primary" onclick="ui.goto('trade')">Buy / Sell</button>
+            <button onclick="depositPrompt()">Deposit USD</button>
+            <button onclick="withdrawPrompt()">Withdraw USD</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Recent History</h2>
+        <ul id="recentHistory"></ul>
+      </div>
+    </section>
+
+    <!-- ASSETS -->
+    <section id="page-assets" class="page hidden">
+      <div class="card">
+        <h2>Balances</h2>
+        <table>
+          <thead>
+            <tr><th>Asset</th><th>Amount</th><th class="right">USD Value</th></tr>
+          </thead>
+          <tbody id="assetsTable"></tbody>
+        </table>
+      </div>
+      <div class="grid g-2">
+        <div class="card">
+          <h2>Deposit</h2>
+          <label>Amount (USD)</label>
+          <input id="depAmt" type="number" min="1" placeholder="100"/>
+          <button class="btn-primary" onclick="deposit()">Deposit</button>
+        </div>
+        <div class="card">
+          <h2>Withdraw</h2>
+          <label>Amount (USD)</label>
+          <input id="wdAmt" type="number" min="1" placeholder="100"/>
+          <button class="btn-primary" onclick="withdraw()">Withdraw</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRADE -->
+    <section id="page-trade" class="page hidden">
+      <div class="grid g-2">
+        <div class="card">
+          <h2>Market Order</h2>
+          <label>Coin</label>
+          <select id="mCoin">
+            <option value="bitcoin">BTC</option>
+            <option value="ethereum">ETH</option>
+            <option value="dogecoin">DOGE</option>
+          </select>
+          <label>Amount (USD)</label>
+          <input id="mAmt" type="number" min="1" placeholder="50"/>
+          <div class="row">
+            <button class="btn-primary" onclick="trade.marketBuy()">Buy</button>
+            <button class="btn-danger" onclick="trade.marketSell()">Sell</button>
+          </div>
+          <div class="muted mt-8">Buys use available USD; sells use your coin balance.</div>
+        </div>
+
+        <div class="card">
+          <h2>Limit Order</h2>
+          <label>Coin</label>
+          <select id="lCoin">
+            <option value="bitcoin">BTC</option>
+            <option value="ethereum">ETH</option>
+            <option value="dogecoin">DOGE</option>
+          </select>
+          <label>Side</label>
+          <select id="lSide">
+            <option value="buy">Buy</option>
+            <option value="sell">Sell</option>
+          </select>
+          <label>Amount (USD)</label>
+          <input id="lAmt" type="number" min="1" placeholder="100"/>
+          <label>Limit Price (USD)</label>
+          <input id="lPrice" type="number" step="0.0001" placeholder="e.g. 60000"/>
+          <button class="btn-primary" onclick="trade.placeLimit()">Place Limit</button>
+          <div class="muted mt-8">Open orders execute automatically when price meets your limit.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ORDERS -->
+    <section id="page-orders" class="page hidden">
+      <div class="card">
+        <h2>Open Orders</h2>
+        <ul id="openOrders"></ul>
+      </div>
+      <div class="card">
+        <h2>Filled / Trade History</h2>
+        <div class="row">
+          <button onclick="exportHistory()">Export History (.txt)</button>
+          <button class="btn-ghost" onclick="history.clear()">Clear History</button>
+        </div>
+        <ul id="historyList"></ul>
+      </div>
+    </section>
+
+    <!-- REWARDS -->
+    <section id="page-rewards" class="page hidden">
+      <div class="card">
+        <h2>Daily Reward</h2>
+        <p class="muted">Claim once per day. +$10 USD credited to wallet.</p>
+        <button id="claimBtn" class="btn-primary" onclick="rewards.claim()">Claim Reward</button>
+        <div class="mt-12">Last claim: <span id="lastClaim">—</span></div>
+      </div>
+    </section>
+
+    <!-- REFERRAL -->
+    <section id="page-referral" class="page hidden">
+      <div class="card">
+        <h2>Your Referral</h2>
+        <div class="row">
+          <input id="refCode" readonly/>
+          <button onclick="referral.newCode()">Generate / Refresh</button>
+        </div>
+        <p class="muted">Bonus: +$5 USD for each referred user you add below.</p>
+      </div>
+      <div class="card">
+        <h2>Add Referred User</h2>
+        <label>Username</label>
+        <input id="refName" placeholder="friend123"/>
+        <button class="btn-primary" onclick="referral.add()">Add Referral</button>
+      </div>
+      <div class="card">
+        <h2>Referred Users</h2>
+        <ul id="refList"></ul>
+      </div>
+    </section>
+
+    <!-- ACCOUNT -->
+    <section id="page-account" class="page hidden">
+      <div class="grid g-2">
+        <div class="card">
+          <h2>Profile</h2>
+          <label>Username</label>
+          <input id="accName" />
+          <button class="btn-primary" onclick="account.save()">Save</button>
+        </div>
+        <div class="card">
+          <h2>Security</h2>
+          <label><input type="checkbox" id="twoFA"/> Enable 2FA (simulated)</label>
+          <div class="muted mt-8">This is a demo toggle; no codes are required.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SUB ACCOUNTS -->
+    <section id="page-sub" class="page hidden">
+      <div class="grid g-2">
+        <div class="card">
+          <h2>Create Sub-Account</h2>
+          <label>Sub-account name</label>
+          <input id="subName" placeholder="Bot-1"/>
+          <button class="btn-primary" onclick="subs.create()">Create</button>
+        </div>
+        <div class="card">
+          <h2>Transfer Between Accounts</h2>
+          <label>From</label>
+          <select id="xFrom"></select>
+          <label>To</label>
+          <select id="xTo"></select>
+          <label>Asset</label>
+          <select id="xAsset">
+            <option>USD</option><option>bitcoin</option><option>ethereum</option><option>dogecoin</option>
+          </select>
+          <label>Amount</label>
+          <input id="xAmt" type="number" step="0.000001" placeholder="10"/>
+          <button class="btn-primary" onclick="subs.transfer()">Transfer</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>All Accounts</h2>
+        <div id="subsList"></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="page-settings" class="page hidden">
+      <div class="grid g-2">
+        <div class="card">
+          <h2>Theme</h2>
+          <button class="btn-primary" onclick="settings.toggleTheme()">Toggle Dark / Light</button>
+        </div>
+        <div class="card">
+          <h2>Data</h2>
+          <div class="row">
+            <button onclick="settings.exportJSON()">Export JSON</button>
+            <label class="btn-ghost" style="border:1px dashed var(--border);padding:10px;border-radius:8px;text-align:center;cursor:pointer">
+              Import JSON <input id="importFile" type="file" accept="application/json" class="hidden" onchange="settings.importJSON(event)"/>
+            </label>
+            <button class="btn-danger" onclick="settings.resetAll()">Factory Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+/* ========= Simple Auth (LocalStorage) ========= */
+const USERS_KEY = "mini-exchange-users-v1";          // { username: { passHash, createdAt, lastLogin } }
+const CURRENT_KEY = "mini-exchange-current-user";    // "username"
+
+const auth = {
+  sha(s){ // lightweight (not secure) hash for demo purposes
+    let h=0; for(let i=0;i<s.length;i++){ h=((h<<5)-h)+s.charCodeAt(i); h|=0; } return String(h);
+  },
+  users(){ try{ return JSON.parse(localStorage.getItem(USERS_KEY)) || {}; } catch{ return {}; } },
+  saveUsers(u){ localStorage.setItem(USERS_KEY, JSON.stringify(u)); },
+  current(){ return localStorage.getItem(CURRENT_KEY) || null; },
+  setCurrent(u){ localStorage.setItem(CURRENT_KEY, u); },
+  clearCurrent(){ localStorage.removeItem(CURRENT_KEY); },
+
+  showTab(name){
+    document.getElementById('tabLogin').classList.toggle('active', name==='login');
+    document.getElementById('tabSignup').classList.toggle('active', name==='signup');
+    document.getElementById('paneLogin').classList.toggle('hidden', name!=='login');
+    document.getElementById('paneSignup').classList.toggle('hidden', name!=='signup');
+  },
+
+  refreshKnown(){
+    const box = document.getElementById('knownUsers');
+    const u = auth.users();
+    const names = Object.keys(u);
+    box.innerHTML = names.length
+      ? '<div class="muted">Known users:</div>' + names.map(n=>`<span class="user-pill">${n}<button class="btn-ghost" style="padding:4px 6px" onclick="auth.fillLogin('${n}')">Use</button></span>`).join('')
+      : '<div class="muted">No users yet.</div>';
+  },
+  fillLogin(name){ document.getElementById('loginUser').value = name; document.getElementById('loginPass').focus(); },
+
+  signup(){
+    const user = document.getElementById('suUser').value.trim();
+    const pass = document.getElementById('suPass').value;
+    const pass2= document.getElementById('suPass2').value;
+    if(user.length<2) return alert("Username must be at least 2 characters.");
+    if(pass.length<4) return alert("Password must be at least 4 characters.");
+    if(pass!==pass2) return alert("Passwords do not match.");
+    const db = auth.users();
+    if(db[user]) return alert("Username already exists.");
+    db[user] = { passHash: auth.sha(pass), createdAt: Date.now(), lastLogin: null };
+    auth.saveUsers(db);
+    auth.setCurrent(user);
+    // initialize fresh state file for this user if missing
+    if(!localStorage.getItem(stateKey(user))){
+      const fresh = structuredClone(defaultState);
+      fresh.username = user;
+      localStorage.setItem(stateKey(user), JSON.stringify(fresh));
+    }
+    auth.enterApp(user);
+  },
+
+  login(){
+    const user = document.getElementById('loginUser').value.trim();
+    const pass = document.getElementById('loginPass').value;
+    const db = auth.users();
+    if(!db[user]) return alert("No such user. Please sign up.");
+    if(db[user].passHash !== auth.sha(pass)) return alert("Incorrect password.");
+    db[user].lastLogin = Date.now(); auth.saveUsers(db);
+    auth.setCurrent(user);
+    auth.enterApp(user);
+  },
+
+  quickDemo(){
+    const seed = Math.random().toString(36).slice(2,7);
+    const user = "demo_" + seed;
+    const pass = "demo";
+    const db = auth.users();
+    db[user] = { passHash: auth.sha(pass), createdAt: Date.now(), lastLogin: Date.now() };
+    auth.saveUsers(db);
+    // seed demo wallet
+    const fresh = structuredClone(defaultState);
+    fresh.username = user;
+    fresh.wallet = {USD: 2500, bitcoin: 0.02, ethereum: 0.3, dogecoin: 300};
+    fresh.subAccounts = { Main: structuredClone(fresh.wallet), Bot1: {USD:200, bitcoin:0.005, ethereum:0, dogecoin:0} };
+    localStorage.setItem(stateKey(user), JSON.stringify(fresh));
+    auth.setCurrent(user);
+    auth.enterApp(user);
+  },
+
+  enterApp(user){
+    // Remove auth overlay from DOM instead of just hiding it
+    const authOverlay = document.getElementById('authOverlay');
+    if (authOverlay) {
+      authOverlay.remove();
+    }
+    document.getElementById('app').classList.remove('hidden');
+    document.getElementById('logoutBtn').classList.remove('hidden');
+    bootForUser(user); // load state, render, start price loop
+  },
+
+  logout(){
+    // stop price loop
+    if(priceTimer) clearInterval(priceTimer);
+    auth.clearCurrent();
+    document.getElementById('logoutBtn').classList.add('hidden');
+    document.getElementById('app').classList.add('hidden');
+    
+    // Recreate auth overlay since it was removed from DOM
+    const authOverlayHTML = `
+      <div id="authOverlay" class="auth-wrap" aria-modal="true" role="dialog">
+        <div class="auth-card">
+          <div class="tabs">
+            <button id="tabLogin" class="tab-btn active" onclick="auth.showTab('login')">Login</button>
+            <button id="tabSignup" class="tab-btn" onclick="auth.showTab('signup')">Sign up</button>
+          </div>
+
+          <!-- LOGIN -->
+          <div id="paneLogin">
+            <label>Username</label>
+            <input id="loginUser" placeholder="e.g. zix_09"/>
+            <label>Password</label>
+            <input id="loginPass" type="password" placeholder="••••••••"/>
+            <div class="row mt-12">
+              <button class="btn-primary" onclick="auth.login()">Login</button>
+              <button class="btn-ghost" onclick="auth.quickDemo()">Quick demo</button>
+            </div>
+            <div class="muted mt-12">Tip: use the "Quick demo" to auto-create a sandbox user.</div>
+            <div class="user-list" id="knownUsers"></div>
+          </div>
+
+          <!-- SIGNUP -->
+          <div id="paneSignup" class="hidden">
+            <label>Username</label>
+            <input id="suUser" placeholder="choose a name"/>
+            <label>Password</label>
+            <input id="suPass" type="password" placeholder="at least 4 chars"/>
+            <label>Confirm Password</label>
+            <input id="suPass2" type="password" placeholder="repeat password"/>
+            <div class="row mt-12">
+              <button class="btn-primary" onclick="auth.signup()">Create account</button>
+              <button class="btn-ghost" onclick="auth.showTab('login')">Back to login</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Insert the auth overlay at the end of the body
+    document.body.insertAdjacentHTML('beforeend', authOverlayHTML);
+    
+    // reset login fields and known list
+    document.getElementById('loginUser').value="";
+    document.getElementById('loginPass').value="";
+    auth.showTab('login'); auth.refreshKnown();
+  }
+};
+
+/* ========= State & Persistence (per-user) ========= */
+const emptyWallet = ()=>({USD:1000, bitcoin:0, ethereum:0, dogecoin:0});
+const defaultState = {
+  uid: Math.floor(1e8 + Math.random()*9e8).toString(),
+  username: "Zix_09",
+  theme: "dark",
+  wallet: emptyWallet(),
+  avgPrice: {bitcoin:0,ethereum:0,dogecoin:0},
+  prices: {},
+  history: [],                // filled trades (market or executed limits)
+  openOrders: [],             // {id, coin, side, usd, price, ts}
+  rewards: {lastClaim:null},
+  referral: {code: "", users: []},
+  twoFA: false,
+  subAccounts: { // "Main" + others
+    Main: emptyWallet()
+  }
+};
+// dynamic state key per user
+function stateKey(user){ return `mini-exchange-state-v2:${user}`; }
+
+let S = structuredClone(defaultState); // will be replaced on login
+function save(){ localStorage.setItem(stateKey(S.username||'default'), JSON.stringify(S)); }
+function load(user){
+  try{
+    const raw = localStorage.getItem(stateKey(user));
+    if(raw){ return JSON.parse(raw); }
+    const seed = structuredClone(defaultState); seed.username = user || seed.username; return seed;
+  }catch{
+    const seed = structuredClone(defaultState); seed.username = user || seed.username; return seed;
+  }
+}
+
+/* ========= UI Helpers ========= */
+const $ = (id)=>document.getElementById(id);
+const ui = {
+  goto(page){
+    document.querySelectorAll('.nav-btn').forEach(b=>{
+      b.classList.toggle('active', b.dataset.page===page);
+    });
+    document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
+    $('page-'+page).classList.remove('hidden');
+    render.all();
+  }
+};
+
+/* ========= Prices ========= */
+let priceTimer=null;
+async function loadPrices(){
+  try{
+    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,dogecoin&vs_currencies=usd",{cache:"no-store"});
+    const data = await r.json();
+    const old = S.prices;
+    S.prices = data;
+    render.prices(old);
+    orders.tryExecute();            // check open orders whenever price updates
+    render.portfolio();
+    save();
+  }catch(err){
+    $('priceList').innerHTML = `<span class="muted">Failed to load prices. Retrying…</span>`;
+  }
+}
+function startPriceLoop(){
+  loadPrices();
+  if(priceTimer) clearInterval(priceTimer);
+  priceTimer = setInterval(loadPrices, 10000);
+}
+
+/* ========= Calculations ========= */
+function portfolioValue(wallet=S.wallet){
+  const p=S.prices;
+  const v = wallet.USD
+    + (wallet.bitcoin||0)*(p.bitcoin?.usd||0)
+    + (wallet.ethereum||0)*(p.ethereum?.usd||0)
+    + (wallet.dogecoin||0)*(p.dogecoin?.usd||0);
+  return +v.toFixed(2);
+}
+
+/* ========= Wallet Ops ========= */
+function depositPrompt(){ const n = +prompt("Deposit amount (USD):","100"); if(n>0){ S.wallet.USD+=n; S.subAccounts.Main.USD+=n; save(); render.all(); } }
+function withdrawPrompt(){ const n = +prompt("Withdraw amount (USD):","100"); if(n>0 && n<=S.wallet.USD){ S.wallet.USD-=n; S.subAccounts.Main.USD-=n; save(); render.all(); } else alert("❌ Not enough USD."); }
+
+function deposit(){
+  const n = +$('depAmt').value; if(n>0){ S.wallet.USD+=n; S.subAccounts.Main.USD+=n; $('depAmt').value=""; save(); render.all(); }
+}
+function withdraw(){
+  const n = +$('wdAmt').value; if(n>0 && n<=S.wallet.USD){ S.wallet.USD-=n; S.subAccounts.Main.USD-=n; $('wdAmt').value=""; save(); render.all(); }
+  else alert("❌ Not enough USD.");
+}
+
+/* ========= Trading ========= */
+const trade = {
+  marketBuy(){
+    const coin = $('mCoin').value;
+    const amt = +$('mAmt').value;
+    if(!amt || amt<=0) return alert("Enter USD amount.");
+    if(amt > S.wallet.USD) return alert("❌ Not enough USD.");
+    const price = S.prices[coin]?.usd; if(!price) return;
+    const units = amt/price;
+    // avg price
+    const held = S.wallet[coin];
+    S.avgPrice[coin] = ((S.avgPrice[coin]*held)+(price*units))/(held+units);
+    // update balances
+    S.wallet.USD -= amt; S.wallet[coin]+=units;
+    S.subAccounts.Main.USD -= amt; S.subAccounts.Main[coin]+=units;
+    // history
+    history.add({side:"BUY", type:"MARKET", coin, usd:amt, price, units});
+    save(); render.all();
+  },
+  marketSell(){
+    const coin = $('mCoin').value;
+    const amt = +$('mAmt').value;
+    if(!amt || amt<=0) return alert("Enter USD amount.");
+    const price = S.prices[coin]?.usd; if(!price) return;
+    const units = amt/price;
+    if(units > S.wallet[coin]) return alert("❌ Not enough coins.");
+    S.wallet[coin]-=units; S.wallet.USD+=amt;
+    S.subAccounts.Main[coin]-=units; S.subAccounts.Main.USD+=amt;
+    const plPer = price - (S.avgPrice[coin]||price);
+    history.add({side:"SELL", type:"MARKET", coin, usd:amt, price, units, plPer:+plPer.toFixed(2)});
+    save(); render.all();
+  },
+  placeLimit(){
+    const coin=$('lCoin').value, side=$('lSide').value, usd=+$('lAmt').value, price=+$('lPrice').value;
+    if(!usd||usd<=0||!price||price<=0) return alert("Enter USD and limit price.");
+    if(side==="buy" && usd>S.wallet.USD) return alert("❌ Not enough USD.");
+    if(side==="sell"){
+      const units = usd/ (S.prices[coin]?.usd||price);
+      if(units>S.wallet[coin]) return alert("❌ Not enough coins.");
+    }
+    const id = 'L'+Date.now();
+    S.openOrders.push({id, coin, side, usd, price, ts:Date.now()});
+    save(); render.orders();
+    alert("✅ Limit order placed.");
+  }
+};
+
+/* ========= Orders & History ========= */
+const orders = {
+  tryExecute(){
+    const p=S.prices; if(!p.bitcoin) return;
+    const remain=[];
+    for(const o of S.openOrders){
+      const m = p[o.coin].usd;
+      const hit = (o.side==="buy") ? (m<=o.price) : (m>=o.price);
+      if(hit){
+        if(o.side==="buy"){
+          if(o.usd<=S.wallet.USD){
+            const units = o.usd / o.price; // execute at limit price
+            const held = S.wallet[o.coin];
+            S.avgPrice[o.coin] = ((S.avgPrice[o.coin]*held)+(o.price*units))/(held+units);
+            S.wallet.USD-=o.usd; S.wallet[o.coin]+=units;
+            S.subAccounts.Main.USD-=o.usd; S.subAccounts.Main[o.coin]+=units;
+            history.add({side:"BUY", type:"LIMIT", coin:o.coin, usd:o.usd, price:o.price, units});
+          }else{
+            remain.push(o); // insufficient funds -> keep
+          }
+        }else{ // sell
+          const units = o.usd/o.price;
+          if(units<=S.wallet[o.coin]){
+            S.wallet[o.coin]-=units; S.wallet.USD+=o.usd;
+            S.subAccounts.Main[o.coin]-=units; S.subAccounts.Main.USD+=o.usd;
+            const plPer = o.price - (S.avgPrice[o.coin]||o.price);
+            history.add({side:"SELL", type:"LIMIT", coin:o.coin, usd:o.usd, price:o.price, units, plPer:+plPer.toFixed(2)});
+          }else{
+            remain.push(o);
+          }
+        }
+      }else{
+        remain.push(o);
+      }
+    }
+    S.openOrders = remain;
+    save(); render.orders(); render.portfolio();
+  },
+  cancel(id){
+    S.openOrders = S.openOrders.filter(o=>o.id!==id);
+    save(); render.orders();
+  }
+};
+const history = {
+  add(h){
+    S.history.unshift({...h, id:'H'+Date.now()+Math.random().toString(16).slice(2), ts:Date.now()});
+    S.history = S.history.slice(0,500);
+  },
+  clear(){ if(confirm("Clear all trade history?")){ S.history=[]; save(); render.history(); } }
+};
+function exportHistory(){
+  const lines = S.history.map(h=>{
+    const t = new Date(h.ts).toLocaleString();
+    return `${t} | ${h.type} ${h.side} ${h.coin.toUpperCase()} | USD ${h.usd.toFixed(2)} | Px ${h.price} | Units ${h.units.toFixed(6)}${h.plPer!==undefined?` | P/L per ${h.plPer}`:""}`;
+  }).join("\n");
+  const blob = new Blob([lines||"No history yet."], {type:"text/plain"});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download="trade_history.txt"; a.click();
+}
+
+/* ========= Rewards ========= */
+const rewards = {
+  canClaim(){
+    const last = S.rewards.lastClaim;
+    if(!last) return true;
+    const d1 = new Date(last); const d2 = new Date();
+    return d1.toDateString() !== d2.toDateString();
+  },
+  claim(){
+    if(!rewards.canClaim()) return alert("Already claimed today ✅");
+    S.rewards.lastClaim = new Date().toISOString();
+    S.wallet.USD += 10; S.subAccounts.Main.USD += 10;
+    save(); render.rewards(); render.portfolio();
+    alert("🎉 Claimed +$10 to wallet");
+  }
+};
+
+/* ========= Referral ========= */
+const referral = {
+  newCode(){
+    S.referral.code = Math.random().toString(36).slice(2,8).toUpperCase();
+    save(); render.referral();
+  },
+  add(){
+    const name = $('refName').value.trim();
+    if(!name) return;
+    if(S.referral.users.find(u=>u.name===name)) return alert("Already added.");
+    S.referral.users.push({name, ts:Date.now()});
+    S.wallet.USD+=5; S.subAccounts.Main.USD+=5;
+    $('refName').value="";
+    save(); render.referral(); render.portfolio();
+  }
+};
+
+/* ========= Account ========= */
+const account = {
+  save(){
+    const newName = $('accName').value.trim();
+    if(newName && newName !== S.username){
+      // rename state namespace: create new state under the new name and move CURRENT_KEY too
+      const db = auth.users();
+      if(db[newName]){ alert("That username is already taken."); $('accName').value = S.username; return; }
+      // migrate user record
+      db[newName] = db[S.username]; delete db[S.username]; auth.saveUsers(db);
+      // save current state under new key
+      const oldName = S.username;
+      S.username = newName;
+      localStorage.setItem(stateKey(newName), JSON.stringify(S));
+      localStorage.removeItem(stateKey(oldName));
+      auth.setCurrent(newName);
+    }
+    S.twoFA = $('twoFA').checked;
+    save(); render.account(); render.header();
+    alert("Profile saved.");
+  }
+};
+
+/* ========= Sub-Accounts ========= */
+const subs = {
+  create(){
+    const name=$('subName').value.trim();
+    if(!name) return;
+    if(S.subAccounts[name]) return alert("Name exists.");
+    S.subAccounts[name]=emptyWallet();
+    $('subName').value="";
+    save(); render.subs();
+  },
+  transfer(){
+    const from=$('xFrom').value, to=$('xTo').value, asset=$('xAsset').value, amt=+$('xAmt').value;
+    if(from===to) return alert("Choose different accounts.");
+    if(!amt||amt<=0) return;
+    if(S.subAccounts[from][asset] < amt) return alert("Insufficient balance.");
+    S.subAccounts[from][asset]-=amt;
+    S.subAccounts[to][asset]=(S.subAccounts[to][asset]||0)+amt;
+    if(from==="Main"||to==="Main"){ // also mirror to top-level wallet for convenience
+      S.wallet = structuredClone(S.subAccounts.Main);
+    }
+    $('xAmt').value="";
+    save(); render.subs(); render.portfolio();
+  }
+};
+
+/* ========= Settings ========= */
+const settings = {
+  toggleTheme(){
+    S.theme = (S.theme==="dark")?"light":"dark";
+    document.getElementById('app').dataset.theme = S.theme;
+    $('themeTag').textContent = "Theme: " + (S.theme==="dark"?"Dark":"Light");
+    $('themeLabel').textContent = (S.theme==="dark"?"Dark":"Light");
+    save();
+  },
+  exportJSON(){
+    const blob = new Blob([JSON.stringify(S,null,2)], {type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`mini-exchange-${S.username}.json`; a.click();
+  },
+  importJSON(ev){
+    const f = ev.target.files[0]; if(!f) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const obj = JSON.parse(reader.result);
+        // keep current theme/username unless provided
+        S = Object.assign(structuredClone(defaultState), obj);
+        if(!S.username) S.username = auth.current() || S.username;
+        save(); render.all();
+        alert("Imported successfully.");
+      }catch{ alert("Invalid JSON."); }
+    };
+    reader.readAsText(f);
+  },
+  resetAll(){
+    if(confirm("Reset this user's data to factory settings?")){
+      const user = S.username;
+      S = structuredClone(defaultState);
+      S.username = user;
+      save(); render.all();
+    }
+  }
+};
+
+/* ========= Rendering ========= */
+const render = {
+  all(){ render.header(); render.portfolio(); render.assets(); render.prices(); render.history(); render.orders(); render.rewards(); render.referral(); render.account(); render.subs(); },
+  header(){ $('uidTag').textContent = "UID " + (S.uid||'—'); $('themeTag').textContent="Theme: "+(S.theme==="dark"?"Dark":"Light"); $('app').dataset.theme=S.theme; $('themeLabel').textContent=(S.theme==="dark"?"Dark":"Light"); $('userTag').textContent = "User " + (S.username||'—'); },
+  portfolio(){
+    $('usdBalance').textContent = S.wallet.USD.toFixed(2);
+    $('portfolioValue').textContent = portfolioValue().toFixed(2);
+    $('recentHistory').innerHTML = S.history.slice(0,5).map(h=>`<li class="item">${new Date(h.ts).toLocaleTimeString()} — ${h.type} ${h.side} ${h.coin.toUpperCase()} • $${h.usd.toFixed(2)} @ ${h.price}</li>`).join('') || `<span class="muted">No trades yet.</span>`;
+  },
+  prices(old={}){
+    const co = [
+      {id:'bitcoin', sym:'BTC'},
+      {id:'ethereum', sym:'ETH'},
+      {id:'dogecoin', sym:'DOGE'}
+    ];
+    const html = co.map(c=>{
+      const p = S.prices[c.id]?.usd;
+      const prev = old[c.id]?.usd;
+      const cls = prev ? (p>prev?'price-up':p<prev?'price-down':'') : '';
+      return `<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 0">
+        <div><b>${c.sym}</b></div>
+        <div class="${cls}">$${p??'—'}</div>
+      </div>`;
+    }).join('');
+    $('priceList').innerHTML = html || `<span class="muted">Loading…</span>`;
+  },
+  assets(){
+    const rows = [
+      ['USD','USD',S.wallet.USD,1],
+      ['BTC','bitcoin',S.wallet.bitcoin,S.prices.bitcoin?.usd||0],
+      ['ETH','ethereum',S.wallet.ethereum,S.prices.ethereum?.usd||0],
+      ['DOGE','dogecoin',S.wallet.dogecoin,S.prices.dogecoin?.usd||0]
+    ].map(([name,key,amt,px])=> `<tr><td>${name}</td><td>${(key==='USD')?amt.toFixed(2):amt.toFixed(6)}</td><td class="right">$${(key==='USD'?amt:amt*px).toFixed(2)}</td></tr>`).join('');
+    $('assetsTable').innerHTML = rows;
+  },
+  history(){
+    $('historyList').innerHTML = S.history.map(h=>`<li class="item">${new Date(h.ts).toLocaleString()} — <b>${h.type}</b> ${h.side} ${h.coin.toUpperCase()} • USD $${h.usd.toFixed(2)} • Px ${h.price} • Units ${h.units.toFixed(6)} ${h.plPer!==undefined?`• P/L per ${h.plPer}`:''}</li>`).join('') || `<span class="muted">No history.</span>`;
+  },
+  orders(){
+    $('openOrders').innerHTML = S.openOrders.map(o=>`<li class="item">
+      ${new Date(o.ts).toLocaleString()} — <b>LIMIT</b> ${o.side.toUpperCase()} ${o.coin.toUpperCase()} • USD $${o.usd.toFixed(2)} • Px ${o.price}
+      <div class="row mt-8"><button class="btn-danger" onclick="orders.cancel('${o.id}')">Cancel</button></div>
+    </li>`).join('') || `<span class="muted">No open orders.</span>`;
+  },
+  rewards(){
+    $('lastClaim').textContent = S.rewards.lastClaim ? new Date(S.rewards.lastClaim).toLocaleString() : "Never";
+    $('claimBtn').disabled = !rewards.canClaim();
+  },
+  referral(){
+    if(!S.referral.code) referral.newCode();
+    $('refCode').value = S.referral.code;
+    $('refList').innerHTML = S.referral.users.map(u=>`<li class="item">${u.name} • ${new Date(u.ts).toLocaleDateString()}</li>`).join('') || `<span class="muted">No referrals yet.</span>`;
+  },
+  account(){
+    $('accName').value = S.username;
+    $('twoFA').checked = !!S.twoFA;
+  },
+  subs(){
+    const names = Object.keys(S.subAccounts);
+    const opts = names.map(n=>`<option>${n}</option>`).join('');
+    $('xFrom').innerHTML=opts; $('xTo').innerHTML=opts;
+    const html = names.map(n=>{
+      const w=S.subAccounts[n];
+      return `<div class="card"><b>${n}</b><div class="grid g-3 mt-12">
+        <div>USD: $${(w.USD||0).toFixed(2)}</div>
+        <div>BTC: ${(w.bitcoin||0).toFixed(6)}</div>
+        <div>ETH: ${(w.ethereum||0).toFixed(6)}</div>
+        <div>DOGE: ${(w.dogecoin||0).toFixed(2)}</div>
+        <div class="muted">Value: $${portfolioValue(w)}</div>
+      </div></div>`;
+    }).join('');
+    $('subsList').innerHTML = html;
+  }
+};
+
+/* ========= Event wiring ========= */
+document.querySelectorAll('.nav-btn').forEach(b=>{
+  b.addEventListener('click', ()=>ui.goto(b.dataset.page));
+});
+
+/* ========= Bootstrap per user ========= */
+function bootForUser(user){
+  S = load(user);
+  // Ensure "Main" mirrors top-level wallet
+  if(!S.subAccounts || !S.subAccounts.Main) S.subAccounts = { Main: structuredClone(S.wallet) };
+  document.getElementById('app').dataset.theme = S.theme;
+  render.all();
+  startPriceLoop();
+}
+
+/* ========= Global init ========= */
+(function init(){
+  // Prepare auth overlay UI
+  auth.refreshKnown();
+  const current = auth.current();
+  if(current){
+    // auto-enter app for last user
+    // Check if auth overlay exists before trying to hide it
+    const authOverlay = document.getElementById('authOverlay');
+    if (authOverlay) {
+      authOverlay.classList.add('hidden');
+    }
+    document.getElementById('app').classList.remove('hidden');
+    document.getElementById('logoutBtn').classList.remove('hidden');
+    bootForUser(current);
+  }else{
+    // show auth first - ensure auth overlay exists
+    const authOverlay = document.getElementById('authOverlay');
+    if (authOverlay) {
+      authOverlay.classList.remove('hidden');
+    } else {
+      // If auth overlay doesn't exist (was removed), recreate it
+      auth.logout(); // This will recreate the auth overlay
+      return; // logout function will handle the rest
+    }
+    document.getElementById('app').classList.add('hidden');
+    document.getElementById('logoutBtn').classList.add('hidden');
+    auth.showTab('login');
+  }
+})();
+</script>
+</body>
+</html>
